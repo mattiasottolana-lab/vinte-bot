@@ -1,1 +1,1 @@
-# vinte-bot
+# vinted-bot
