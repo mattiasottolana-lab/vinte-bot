@@ -7,7 +7,7 @@ from datetime import datetime
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN", "9297766331:AAGk6Mw54p0HKlJ7MAJfwZB10rH2y1Qj0yg")
 TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID", "8284365011")
 
-CHECK_INTERVAL = 40
+CHECK_INTERVAL = 45
 SEEN_FILE = "seen_items.json"
 
 SEARCHES = [
@@ -25,9 +25,7 @@ session = requests.Session()
 session.headers.update({
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
     "Accept": "application/json, text/plain, */*",
-    "Accept-Language": "it-IT,it;q=0.9,en-US;q=0.8,en;q=0.7",
-    "Accept-Encoding": "gzip, deflate, br",
-    "Connection": "keep-alive",
+    "Accept-Language": "it-IT,it;q=0.9,en;q=0.8",
     "Referer": "https://www.vinted.it/",
     "Origin": "https://www.vinted.it",
     "Sec-Fetch-Dest": "empty",
@@ -73,7 +71,7 @@ def send_to_telegram(item, search_name):
         if r.status_code == 200:
             print(f"[{datetime.now().strftime('%H:%M:%S')}] ✅ {search_name} | {price}€ | {title[:45]}...")
         else:
-            print(f"Errore Telegram: {r.status_code}")
+            print(f"Errore Telegram: {r.status_code} - {r.text[:100]}")
     except Exception as e:
         print("Errore invio Telegram:", e)
 
@@ -81,46 +79,26 @@ def check_search(search, seen):
     name = search["name"]
     params = search["params"]
     try:
-        response = session.get("https://www.vinted.it/api/v2/catalog/items", params=params, timeout=15)
+        # Warm-up per ottenere cookie
+        session.get("https://www.vinted.it/", timeout=10)
+        
+        response = session.get(
+            "https://www.vinted.it/api/v2/catalog/items",
+            params=params,
+            timeout=15
+        )
+        
         if response.status_code != 200:
             print(f"[{name}] Errore HTTP {response.status_code}")
             return
-        items = response.json().get("items", [])
+            
+        data = response.json()
+        items = data.get("items", [])
         new_count = 0
+        
         for item in items:
             item_id = item.get("id")
             if item_id and item_id not in seen:
                 seen.add(item_id)
                 send_to_telegram(item, name)
                 new_count += 1
-        if new_count > 0:
-            save_seen(seen)
-    except Exception as e:
-        print(f"[{name}] Errore: {e}")
-
-def main():
-    seen = load_seen()
-    print("Bot Vinted → Telegram avviato")
-    print(f"Ricerche attive: {len(SEARCHES)}")
-    print(f"Controllo ogni {CHECK_INTERVAL} secondi")
-
-    # Warm up session
-    try:
-        session.get("https://www.vinted.it/", timeout=10)
-    except:
-        pass
-
-    print("Caricamento annunci esistenti...")
-    for search in SEARCHES:
-        check_search(search, seen)
-    save_seen(seen)
-    print(f"Caricati. Totale ID: {len(seen)}")
-    print("In ascolto...\n")
-
-    while True:
-        time.sleep(CHECK_INTERVAL)
-        for search in SEARCHES:
-            check_search(search, seen)
-
-if __name__ == "__main__":
-    main()
