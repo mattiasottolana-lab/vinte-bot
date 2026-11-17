@@ -21,11 +21,19 @@ SEARCHES = [
     {"name": "Giochi PlayStation 5", "params": {"search_text": "PlayStation 5", "catalog_ids": "3026", "order": "price_low_to_high", "price_from": 1, "price_to": 30, "per_page": 20, "page": 1}},
 ]
 
-headers = {
+session = requests.Session()
+session.headers.update({
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
     "Accept": "application/json, text/plain, */*",
-    "Accept-Language": "it-IT,it;q=0.9,en;q=0.8",
-}
+    "Accept-Language": "it-IT,it;q=0.9,en-US;q=0.8,en;q=0.7",
+    "Accept-Encoding": "gzip, deflate, br",
+    "Connection": "keep-alive",
+    "Referer": "https://www.vinted.it/",
+    "Origin": "https://www.vinted.it",
+    "Sec-Fetch-Dest": "empty",
+    "Sec-Fetch-Mode": "cors",
+    "Sec-Fetch-Site": "same-origin",
+})
 
 def load_seen():
     if os.path.exists(SEEN_FILE):
@@ -73,7 +81,7 @@ def check_search(search, seen):
     name = search["name"]
     params = search["params"]
     try:
-        response = requests.get("https://www.vinted.it/api/v2/catalog/items", params=params, headers=headers, timeout=15)
+        response = session.get("https://www.vinted.it/api/v2/catalog/items", params=params, timeout=15)
         if response.status_code != 200:
             print(f"[{name}] Errore HTTP {response.status_code}")
             return
@@ -95,6 +103,12 @@ def main():
     print("Bot Vinted → Telegram avviato")
     print(f"Ricerche attive: {len(SEARCHES)}")
     print(f"Controllo ogni {CHECK_INTERVAL} secondi")
+
+    # Warm up session
+    try:
+        session.get("https://www.vinted.it/", timeout=10)
+    except:
+        pass
 
     print("Caricamento annunci esistenti...")
     for search in SEARCHES:
