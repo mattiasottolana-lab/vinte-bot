@@ -11,14 +11,14 @@ CHECK_INTERVAL = 50
 SEEN_FILE = "seen_items.json"
 
 SEARCHES = [
-    {"name": "Nintendo Switch (Console)", "params": {"search_text": "Nintendo Switch", "catalog_ids": "3025", "order": "price_low_to_high", "price_from": 2, "price_to": 80, "per_page": 20}},
-    {"name": "Ralph Lauren", "params": {"search_text": "Ralph Lauren", "order": "price_low_to_high", "price_from": 2, "price_to": 30, "per_page": 20}},
-    {"name": "Nintendo 3DS", "params": {"search_text": "Nintendo 3DS", "catalog_ids": "3025", "order": "price_low_to_high", "price_from": 2, "price_to": 70, "per_page": 20}},
-    {"name": "Nintendo 3DS XL", "params": {"search_text": "3DS XL", "catalog_ids": "3025", "order": "price_low_to_high", "price_from": 2, "price_to": 100, "per_page": 20}},
-    {"name": "Giochi Nintendo Switch", "params": {"search_text": "Nintendo Switch", "catalog_ids": "3026", "order": "price_low_to_high", "price_from": 2, "price_to": 15, "per_page": 20}},
-    {"name": "Giochi Nintendo 3DS", "params": {"search_text": "Nintendo 3DS", "catalog_ids": "3026", "order": "price_low_to_high", "price_from": 2, "price_to": 10, "per_page": 20}},
-    {"name": "Giochi PlayStation", "params": {"search_text": "PlayStation", "catalog_ids": "3026", "order": "price_low_to_high", "price_from": 2, "price_to": 30, "per_page": 20}},
-    {"name": "Giochi PlayStation 5", "params": {"search_text": "PlayStation 5", "catalog_ids": "3026", "order": "price_low_to_high", "price_from": 2, "price_to": 30, "per_page": 20}},
+    {"name": "Nintendo Switch (Console)", "params": {"search_text": "Nintendo Switch", "catalog_ids": "3025", "order": "newest_first", "price_from": 2, "price_to": 80, "per_page": 20}},
+    {"name": "Ralph Lauren", "params": {"search_text": "Ralph Lauren", "order": "newest_first", "price_from": 2, "price_to": 30, "per_page": 20}},
+    {"name": "Nintendo 3DS", "params": {"search_text": "Nintendo 3DS", "catalog_ids": "3025", "order": "newest_first", "price_from": 2, "price_to": 70, "per_page": 20}},
+    {"name": "Nintendo 3DS XL", "params": {"search_text": "3DS XL", "catalog_ids": "3025", "order": "newest_first", "price_from": 2, "price_to": 100, "per_page": 20}},
+    {"name": "Giochi Nintendo Switch", "params": {"search_text": "Nintendo Switch", "catalog_ids": "3026", "order": "newest_first", "price_from": 2, "price_to": 15, "per_page": 20}},
+    {"name": "Giochi Nintendo 3DS", "params": {"search_text": "Nintendo 3DS", "catalog_ids": "3026", "order": "newest_first", "price_from": 2, "price_to": 10, "per_page": 20}},
+    {"name": "Giochi PlayStation", "params": {"search_text": "PlayStation", "catalog_ids": "3026", "order": "newest_first", "price_from": 2, "price_to": 30, "per_page": 20}},
+    {"name": "Giochi PlayStation 5", "params": {"search_text": "PlayStation 5", "catalog_ids": "3026", "order": "newest_first", "price_from": 2, "price_to": 30, "per_page": 20}},
 ]
 
 def load_seen():
@@ -112,7 +112,7 @@ def main():
 
     seen = load_seen()
     scraper = VintedScraper("https://www.vinted.it")
-    print("Bot Vinted avviato (prezzo da 2€)")
+    print("Bot Vinted avviato (newest first)")
     print(f"Ricerche: {len(SEARCHES)}")
     print(f"Controllo ogni {CHECK_INTERVAL} secondi")
 
