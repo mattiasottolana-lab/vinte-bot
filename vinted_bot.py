@@ -28,9 +28,6 @@ session.headers.update({
     "Accept-Language": "it-IT,it;q=0.9,en;q=0.8",
     "Referer": "https://www.vinted.it/",
     "Origin": "https://www.vinted.it",
-    "Sec-Fetch-Dest": "empty",
-    "Sec-Fetch-Mode": "cors",
-    "Sec-Fetch-Site": "same-origin",
 })
 
 def load_seen():
@@ -69,9 +66,9 @@ def send_to_telegram(item, search_name):
     try:
         r = requests.post(api_url, json=payload, timeout=10)
         if r.status_code == 200:
-            print(f"[{datetime.now().strftime('%H:%M:%S')}] ✅ {search_name} | {price}€ | {title[:45]}...")
+            print(f"[{datetime.now().strftime('%H:%M:%S')}] OK {search_name} | {price}€ | {title[:40]}")
         else:
-            print(f"Errore Telegram: {r.status_code} - {r.text[:100]}")
+            print(f"Errore Telegram: {r.status_code}")
     except Exception as e:
         print("Errore invio Telegram:", e)
 
@@ -79,21 +76,14 @@ def check_search(search, seen):
     name = search["name"]
     params = search["params"]
     try:
-        # Warm-up per ottenere cookie
         session.get("https://www.vinted.it/", timeout=10)
-        
-        response = session.get(
-            "https://www.vinted.it/api/v2/catalog/items",
-            params=params,
-            timeout=15
-        )
+        response = session.get("https://www.vinted.it/api/v2/catalog/items", params=params, timeout=15)
         
         if response.status_code != 200:
             print(f"[{name}] Errore HTTP {response.status_code}")
             return
             
-        data = response.json()
-        items = data.get("items", [])
+        items = response.json().get("items", [])
         new_count = 0
         
         for item in items:
@@ -102,3 +92,33 @@ def check_search(search, seen):
                 seen.add(item_id)
                 send_to_telegram(item, name)
                 new_count += 1
+                
+        if new_count > 0:
+            save_seen(seen)
+            print(f"[{name}] Trovati {new_count} nuovi")
+        else:
+            print(f"[{name}] Nessun nuovo")
+            
+    except Exception as e:
+        print(f"[{name}] Errore: {e}")
+
+def main():
+    seen = load_seen()
+    print("Bot Vinted avviato")
+    print(f"Ricerche: {len(SEARCHES)}")
+    print(f"Controllo ogni {CHECK_INTERVAL} secondi")
+
+    for search in SEARCHES:
+        check_search(search, seen)
+    save_seen(seen)
+    print(f"ID caricati: {len(seen)}")
+    print("In ascolto...")
+
+    while True:
+        time.sleep(CHECK_INTERVAL)
+        for search in SEARCHES:
+            check_search(search, seen)
+            time.sleep(1)
+
+if __name__ == "__main__":
+    main()
