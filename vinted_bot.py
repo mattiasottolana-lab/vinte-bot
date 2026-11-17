@@ -4,8 +4,8 @@ import os
 from datetime import datetime
 from vinted_scraper import VintedScraper
 
-TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN", "9297766331:AAGk6Mw54p0HKlJ7MAJfwZB10rH2y1Qj0yg")
-TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID", "8284365011")
+TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
+TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
 
 CHECK_INTERVAL = 50
 SEEN_FILE = "seen_items.json"
@@ -36,15 +36,16 @@ def save_seen(seen):
 
 def send_to_telegram(title, price, item_id, search_name, url=None):
     import requests
-    item_url = url or f"https://www.vinted.it/items/{item_id}"
+    item_url = url if url and str(url).startswith("http") else f"https://www.vinted.it/items/{item_id}"
+    
     message = (
         f"🔔 <b>Nuovo annuncio trovato!</b>\n\n"
         f"<b>{title}</b>\n\n"
         f"💰 <b>Prezzo:</b> {price} €\n"
         f"📁 <b>Ricerca:</b> {search_name}\n"
         f"🆔 <b>ID:</b> {item_id}\n\n"
-        f"🛒 <b><a href='{item_url}'>COMPRA SUBITO</a></b>\n"
-        f"🔗 {item_url}"
+        f"🛒 <a href=\"{item_url}\"><b>COMPRA SUBITO</b></a>\n"
+        f"🔗 <a href=\"{item_url}\">{item_url}</a>"
     )
 
     api_url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
@@ -60,9 +61,22 @@ def send_to_telegram(title, price, item_id, search_name, url=None):
         if r.status_code == 200:
             print(f"[{datetime.now().strftime('%H:%M:%S')}] OK {search_name} | {price}€ | {title[:40]}")
         else:
-            print(f"Errore Telegram: {r.status_code}")
+            print(f"Errore Telegram: {r.status_code} - {r.text[:150]}")
     except Exception as e:
         print("Errore invio Telegram:", e)
+
+def get_price(item):
+    try:
+        if hasattr(item, "price") and item.price:
+            if hasattr(item.price, "amount"):
+                return item.price.amount
+            elif isinstance(item.price, (int, float, str)):
+                return item.price
+        if hasattr(item, "total_item_price") and item.total_item_price:
+            return item.total_item_price
+    except:
+        pass
+    return "?"
 
 def check_search(scraper, search, seen):
     name = search["name"]
@@ -73,12 +87,14 @@ def check_search(scraper, search, seen):
         new_count = 0
 
         for item in items:
-            item_id = item.id
-            if item_id and item_id not in seen:
-                seen.add(item_id)
-                price = getattr(item.price, "amount", "?") if hasattr(item, "price") else "?"
-                send_to_telegram(item.title, price, item_id, name, getattr(item, "url", None))
-                new_count += 1
+            item_id = getattr(item, "id", None)
+            if not item_id or item_id in seen:
+                continue
+            seen.add(item_id)
+            price = get_price(item)
+            url = getattr(item, "url", None) or getattr(item, "path", None)
+            send_to_telegram(item.title, price, item_id, name, url)
+            new_count += 1
 
         if new_count > 0:
             save_seen(seen)
@@ -90,13 +106,16 @@ def check_search(scraper, search, seen):
         print(f"[{name}] Errore: {e}")
 
 def main():
+    if not TELEGRAM_TOKEN or not TELEGRAM_CHAT_ID:
+        print("ERRORE: TELEGRAM_TOKEN o TELEGRAM_CHAT_ID mancanti!")
+        return
+
     seen = load_seen()
     scraper = VintedScraper("https://www.vinted.it")
-    print("Bot Vinted avviato (con vinted-scraper)")
+    print("Bot Vinted avviato (link cliccabili)")
     print(f"Ricerche: {len(SEARCHES)}")
     print(f"Controllo ogni {CHECK_INTERVAL} secondi")
 
-    # Primo caricamento
     for search in SEARCHES:
         check_search(scraper, search, seen)
     save_seen(seen)
