@@ -8,7 +8,7 @@ from datetime import datetime
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN", "9297766331:AAGk6Mw54p0HKlJ7MAJfwZB10rH2y1Qj0yg")
 TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID", "8284365011")
 
-CHECK_INTERVAL = 40
+CHECK_INTERVAL = 50
 SEEN_FILE = "seen_items.json"
 
 SEARCHES = [
@@ -69,15 +69,30 @@ def send_to_telegram(title, price, item_id, search_name):
 
 def extract_items(html):
     items = []
-    # Metodo più robusto per estrarre gli annunci
-    pattern = r'"id":(\d+).*?"title":"(.*?)".*?"price":\{"amount":"([\d.]+)"'
-    matches = re.findall(pattern, html, re.DOTALL)
-    for match in matches[:15]:  # limita ai primi 15 per evitare troppi
-        item_id, title, price = match
+    # Cerca il JSON incorporato nella pagina
+    match = re.search(r'window\.__INITIAL_STATE__\s*=\s*({.+?});', html)
+    if match:
         try:
-            items.append({"id": int(item_id), "title": title, "price": price})
+            data = json.loads(match.group(1))
+            items_data = data.get("catalog", {}).get("items", [])
+            for item in items_data[:20]:
+                item_id = item.get("id")
+                title = item.get("title", "")
+                price = item.get("price", {}).get("amount", "0")
+                if item_id:
+                    items.append({"id": int(item_id), "title": title, "price": price})
         except:
-            continue
+            pass
+    
+    # Fallback con regex semplice
+    if not items:
+        pattern = r'"id":(\d+).*?"title":"(.*?)".*?"amount":"([\d.]+)"'
+        matches = re.findall(pattern, html)
+        for m in matches[:15]:
+            try:
+                items.append({"id": int(m[0]), "title": m[1], "price": m[2]})
+            except:
+                continue
     return items
 
 def check_search(search, seen):
@@ -90,7 +105,7 @@ def check_search(search, seen):
             return
 
         items = extract_items(response.text)
-        print(f"[{name}] Trovati {len(items)} annunci nella pagina")
+        print(f"[{name}] Trovati {len(items)} annunci")
         new_count = 0
 
         for item in items:
@@ -111,7 +126,7 @@ def check_search(search, seen):
 
 def main():
     seen = load_seen()
-    print("Bot Vinted avviato (modalità pagina migliorata)")
+    print("Bot Vinted avviato (versione robusta)")
     print(f"Ricerche: {len(SEARCHES)}")
     print(f"Controllo ogni {CHECK_INTERVAL} secondi")
 
