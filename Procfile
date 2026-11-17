@@ -1,1 +1,1 @@
-worker: python vinted-bot.py
+worker: python vinted_bot.py
