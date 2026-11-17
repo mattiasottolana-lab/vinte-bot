@@ -8,7 +8,7 @@ from datetime import datetime
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN", "9297766331:AAGk6Mw54p0HKlJ7MAJfwZB10rH2y1Qj0yg")
 TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID", "8284365011")
 
-CHECK_INTERVAL = 50
+CHECK_INTERVAL = 40
 SEEN_FILE = "seen_items.json"
 
 SEARCHES = [
@@ -25,7 +25,7 @@ SEARCHES = [
 session = requests.Session()
 session.headers.update({
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
-    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
     "Accept-Language": "it-IT,it;q=0.9,en;q=0.8",
     "Referer": "https://www.vinted.it/",
 })
@@ -69,12 +69,15 @@ def send_to_telegram(title, price, item_id, search_name):
 
 def extract_items(html):
     items = []
-    # Cerca i blocchi degli annunci nel HTML
+    # Metodo più robusto per estrarre gli annunci
     pattern = r'"id":(\d+).*?"title":"(.*?)".*?"price":\{"amount":"([\d.]+)"'
-    matches = re.findall(pattern, html)
-    for match in matches:
+    matches = re.findall(pattern, html, re.DOTALL)
+    for match in matches[:15]:  # limita ai primi 15 per evitare troppi
         item_id, title, price = match
-        items.append({"id": int(item_id), "title": title, "price": price})
+        try:
+            items.append({"id": int(item_id), "title": title, "price": price})
+        except:
+            continue
     return items
 
 def check_search(search, seen):
@@ -87,6 +90,7 @@ def check_search(search, seen):
             return
 
         items = extract_items(response.text)
+        print(f"[{name}] Trovati {len(items)} annunci nella pagina")
         new_count = 0
 
         for item in items:
@@ -98,7 +102,7 @@ def check_search(search, seen):
 
         if new_count > 0:
             save_seen(seen)
-            print(f"[{name}] Trovati {new_count} nuovi")
+            print(f"[{name}] Inviati {new_count} nuovi")
         else:
             print(f"[{name}] Nessun nuovo")
 
@@ -107,7 +111,7 @@ def check_search(search, seen):
 
 def main():
     seen = load_seen()
-    print("Bot Vinted avviato (modalità pagina)")
+    print("Bot Vinted avviato (modalità pagina migliorata)")
     print(f"Ricerche: {len(SEARCHES)}")
     print(f"Controllo ogni {CHECK_INTERVAL} secondi")
 
