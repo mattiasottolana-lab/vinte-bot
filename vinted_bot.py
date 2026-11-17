@@ -1,9 +1,8 @@
-import requests
 import time
 import json
 import os
-import re
 from datetime import datetime
+from vinted_scraper import VintedScraper
 
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN", "9297766331:AAGk6Mw54p0HKlJ7MAJfwZB10rH2y1Qj0yg")
 TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID", "8284365011")
@@ -12,23 +11,15 @@ CHECK_INTERVAL = 50
 SEEN_FILE = "seen_items.json"
 
 SEARCHES = [
-    {"name": "Nintendo Switch (Console)", "url": "https://www.vinted.it/catalog?search_text=Nintendo+Switch&catalog[]=3025&order=price_low_to_high&price_from=1&price_to=80"},
-    {"name": "Ralph Lauren", "url": "https://www.vinted.it/catalog?search_text=Ralph+Lauren&order=price_low_to_high&price_from=1&price_to=30"},
-    {"name": "Nintendo 3DS", "url": "https://www.vinted.it/catalog?search_text=Nintendo+3DS&catalog[]=3025&order=price_low_to_high&price_from=1&price_to=70"},
-    {"name": "Nintendo 3DS XL", "url": "https://www.vinted.it/catalog?search_text=3DS+XL&catalog[]=3025&order=price_low_to_high&price_from=1&price_to=100"},
-    {"name": "Giochi Nintendo Switch", "url": "https://www.vinted.it/catalog?search_text=Nintendo+Switch&catalog[]=3026&order=price_low_to_high&price_from=1&price_to=15"},
-    {"name": "Giochi Nintendo 3DS", "url": "https://www.vinted.it/catalog?search_text=Nintendo+3DS&catalog[]=3026&order=price_low_to_high&price_from=1&price_to=10"},
-    {"name": "Giochi PlayStation", "url": "https://www.vinted.it/catalog?search_text=PlayStation&catalog[]=3026&order=price_low_to_high&price_from=1&price_to=30"},
-    {"name": "Giochi PlayStation 5", "url": "https://www.vinted.it/catalog?search_text=PlayStation+5&catalog[]=3026&order=price_low_to_high&price_from=1&price_to=30"},
+    {"name": "Nintendo Switch (Console)", "params": {"search_text": "Nintendo Switch", "catalog_ids": "3025", "order": "price_low_to_high", "price_from": 1, "price_to": 80, "per_page": 20}},
+    {"name": "Ralph Lauren", "params": {"search_text": "Ralph Lauren", "order": "price_low_to_high", "price_from": 1, "price_to": 30, "per_page": 20}},
+    {"name": "Nintendo 3DS", "params": {"search_text": "Nintendo 3DS", "catalog_ids": "3025", "order": "price_low_to_high", "price_from": 1, "price_to": 70, "per_page": 20}},
+    {"name": "Nintendo 3DS XL", "params": {"search_text": "3DS XL", "catalog_ids": "3025", "order": "price_low_to_high", "price_from": 1, "price_to": 100, "per_page": 20}},
+    {"name": "Giochi Nintendo Switch", "params": {"search_text": "Nintendo Switch", "catalog_ids": "3026", "order": "price_low_to_high", "price_from": 1, "price_to": 15, "per_page": 20}},
+    {"name": "Giochi Nintendo 3DS", "params": {"search_text": "Nintendo 3DS", "catalog_ids": "3026", "order": "price_low_to_high", "price_from": 1, "price_to": 10, "per_page": 20}},
+    {"name": "Giochi PlayStation", "params": {"search_text": "PlayStation", "catalog_ids": "3026", "order": "price_low_to_high", "price_from": 1, "price_to": 30, "per_page": 20}},
+    {"name": "Giochi PlayStation 5", "params": {"search_text": "PlayStation 5", "catalog_ids": "3026", "order": "price_low_to_high", "price_from": 1, "price_to": 30, "per_page": 20}},
 ]
-
-session = requests.Session()
-session.headers.update({
-    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
-    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-    "Accept-Language": "it-IT,it;q=0.9,en;q=0.8",
-    "Referer": "https://www.vinted.it/",
-})
 
 def load_seen():
     if os.path.exists(SEEN_FILE):
@@ -43,8 +34,9 @@ def save_seen(seen):
     with open(SEEN_FILE, "w") as f:
         json.dump(list(seen), f)
 
-def send_to_telegram(title, price, item_id, search_name):
-    item_url = f"https://www.vinted.it/items/{item_id}"
+def send_to_telegram(title, price, item_id, search_name, url=None):
+    import requests
+    item_url = url or f"https://www.vinted.it/items/{item_id}"
     message = (
         f"🔔 <b>Nuovo annuncio trovato!</b>\n\n"
         f"<b>{title}</b>\n\n"
@@ -56,7 +48,12 @@ def send_to_telegram(title, price, item_id, search_name):
     )
 
     api_url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
-    payload = {"chat_id": TELEGRAM_CHAT_ID, "text": message, "parse_mode": "HTML", "disable_web_page_preview": False}
+    payload = {
+        "chat_id": TELEGRAM_CHAT_ID,
+        "text": message,
+        "parse_mode": "HTML",
+        "disable_web_page_preview": False
+    }
 
     try:
         r = requests.post(api_url, json=payload, timeout=10)
@@ -67,52 +64,20 @@ def send_to_telegram(title, price, item_id, search_name):
     except Exception as e:
         print("Errore invio Telegram:", e)
 
-def extract_items(html):
-    items = []
-    # Cerca il JSON incorporato nella pagina
-    match = re.search(r'window\.__INITIAL_STATE__\s*=\s*({.+?});', html)
-    if match:
-        try:
-            data = json.loads(match.group(1))
-            items_data = data.get("catalog", {}).get("items", [])
-            for item in items_data[:20]:
-                item_id = item.get("id")
-                title = item.get("title", "")
-                price = item.get("price", {}).get("amount", "0")
-                if item_id:
-                    items.append({"id": int(item_id), "title": title, "price": price})
-        except:
-            pass
-    
-    # Fallback con regex semplice
-    if not items:
-        pattern = r'"id":(\d+).*?"title":"(.*?)".*?"amount":"([\d.]+)"'
-        matches = re.findall(pattern, html)
-        for m in matches[:15]:
-            try:
-                items.append({"id": int(m[0]), "title": m[1], "price": m[2]})
-            except:
-                continue
-    return items
-
-def check_search(search, seen):
+def check_search(scraper, search, seen):
     name = search["name"]
-    url = search["url"]
+    params = search["params"]
     try:
-        response = session.get(url, timeout=15)
-        if response.status_code != 200:
-            print(f"[{name}] Errore HTTP {response.status_code}")
-            return
-
-        items = extract_items(response.text)
+        items = scraper.search(params)
         print(f"[{name}] Trovati {len(items)} annunci")
         new_count = 0
 
         for item in items:
-            item_id = item["id"]
-            if item_id not in seen:
+            item_id = item.id
+            if item_id and item_id not in seen:
                 seen.add(item_id)
-                send_to_telegram(item["title"], item["price"], item_id, name)
+                price = getattr(item.price, "amount", "?") if hasattr(item, "price") else "?"
+                send_to_telegram(item.title, price, item_id, name, getattr(item, "url", None))
                 new_count += 1
 
         if new_count > 0:
@@ -126,12 +91,14 @@ def check_search(search, seen):
 
 def main():
     seen = load_seen()
-    print("Bot Vinted avviato (versione robusta)")
+    scraper = VintedScraper("https://www.vinted.it")
+    print("Bot Vinted avviato (con vinted-scraper)")
     print(f"Ricerche: {len(SEARCHES)}")
     print(f"Controllo ogni {CHECK_INTERVAL} secondi")
 
+    # Primo caricamento
     for search in SEARCHES:
-        check_search(search, seen)
+        check_search(scraper, search, seen)
     save_seen(seen)
     print(f"ID caricati: {len(seen)}")
     print("In ascolto...")
@@ -139,8 +106,8 @@ def main():
     while True:
         time.sleep(CHECK_INTERVAL)
         for search in SEARCHES:
-            check_search(search, seen)
-            time.sleep(2)
+            check_search(scraper, search, seen)
+            time.sleep(1.5)
 
 if __name__ == "__main__":
     main()
