@@ -21,6 +21,11 @@ SEARCHES = [
     {"name": "Giochi Nintendo 3DS", "params": {"search_text": "Nintendo 3DS", "catalog_ids": "3026", "order": "newest_first", "price_from": 2, "price_to": 10, "per_page": 10}},
     {"name": "Giochi PlayStation", "params": {"search_text": "PlayStation", "catalog_ids": "3026", "order": "newest_first", "price_from": 2, "price_to": 30, "per_page": 10}},
     {"name": "Giochi PlayStation 5", "params": {"search_text": "PlayStation 5", "catalog_ids": "3026", "order": "newest_first", "price_from": 2, "price_to": 30, "per_page": 10}},
+    {"name": "Nike Mind 001", "params": {"search_text": "Nike Mind 001", "order": "newest_first", "price_from": 1, "price_to": 45, "per_page": 10}},
+    {"name": "Carhartt", "params": {"search_text": "Carhartt", "order": "newest_first", "price_from": 1, "price_to": 30, "per_page": 10}},
+    {"name": "Stone Island", "params": {"search_text": "Stone Island", "order": "newest_first", "price_from": 1, "price_to": 30, "per_page": 10}},
+    {"name": "Ugg", "params": {"search_text": "Ugg", "order": "newest_first", "price_from": 1, "price_to": 30, "per_page": 10}},
+    {"name": "Essentials", "params": {"search_text": "Essentials", "order": "newest_first", "price_from": 1, "price_to": 15, "per_page": 10}},
 ]
 
 def load_seen():
@@ -65,7 +70,6 @@ def send_with_token(token, title, price, item_id, search_name, url=None):
         return False
 
 def send_to_telegram(title, price, item_id, search_name, url=None):
-    # Prova prima con token 1, se fallisce prova con token 2
     if send_with_token(TOKEN_1, title, price, item_id, search_name, url):
         print(f"[{datetime.now().strftime('%H:%M:%S')}] OK (bot1) {search_name} | {price}€")
         return True
@@ -110,7 +114,7 @@ def check_search(scraper, search, seen):
             if send_to_telegram(item.title, price, item_id, name, url):
                 sent += 1
                 new_count += 1
-                time.sleep(2)
+                time.sleep(1.8)
             else:
                 time.sleep(4)
 
@@ -130,12 +134,13 @@ def main():
 
     seen = load_seen()
     scraper = VintedScraper("https://www.vinted.it")
-    print("Bot Vinted avviato (fallback 2 bot)")
+    print("Bot Vinted avviato (più veloce)")
+    print(f"Ricerche: {len(SEARCHES)}")
     print(f"Controllo ogni {CHECK_INTERVAL} secondi")
 
     for search in SEARCHES:
         check_search(scraper, search, seen)
-        time.sleep(1)
+        time.sleep(0.8)
     save_seen(seen)
     print("In ascolto...")
 
