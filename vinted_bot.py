@@ -10,17 +10,17 @@ CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
 
 CHECK_INTERVAL = 40
 SEEN_FILE = "seen_items.json"
-MAX_PER_SEARCH = 6
+MAX_PER_SEARCH = 5
 
 SEARCHES = [
-    {"name": "Nintendo Switch (Console)", "params": {"search_text": "Nintendo Switch", "catalog_ids": "3025", "order": "newest_first", "price_from": 2, "price_to": 80, "per_page": 12}},
-    {"name": "Ralph Lauren", "params": {"search_text": "Ralph Lauren", "order": "newest_first", "price_from": 2, "price_to": 30, "per_page": 12}},
-    {"name": "Nintendo 3DS", "params": {"search_text": "Nintendo 3DS", "catalog_ids": "3025", "order": "newest_first", "price_from": 2, "price_to": 70, "per_page": 12}},
-    {"name": "Nintendo 3DS XL", "params": {"search_text": "3DS XL", "catalog_ids": "3025", "order": "newest_first", "price_from": 2, "price_to": 100, "per_page": 12}},
-    {"name": "Giochi Nintendo Switch", "params": {"search_text": "Nintendo Switch", "catalog_ids": "3026", "order": "newest_first", "price_from": 2, "price_to": 15, "per_page": 12}},
-    {"name": "Giochi Nintendo 3DS", "params": {"search_text": "Nintendo 3DS", "catalog_ids": "3026", "order": "newest_first", "price_from": 2, "price_to": 10, "per_page": 12}},
-    {"name": "Giochi PlayStation", "params": {"search_text": "PlayStation", "catalog_ids": "3026", "order": "newest_first", "price_from": 2, "price_to": 30, "per_page": 12}},
-    {"name": "Giochi PlayStation 5", "params": {"search_text": "PlayStation 5", "catalog_ids": "3026", "order": "newest_first", "price_from": 2, "price_to": 30, "per_page": 12}},
+    {"name": "Nintendo Switch (Console)", "params": {"search_text": "Nintendo Switch", "catalog_ids": "3025", "order": "newest_first", "price_from": 2, "price_to": 80, "per_page": 10}},
+    {"name": "Ralph Lauren", "params": {"search_text": "Ralph Lauren", "order": "newest_first", "price_from": 2, "price_to": 30, "per_page": 10}},
+    {"name": "Nintendo 3DS", "params": {"search_text": "Nintendo 3DS", "catalog_ids": "3025", "order": "newest_first", "price_from": 2, "price_to": 70, "per_page": 10}},
+    {"name": "Nintendo 3DS XL", "params": {"search_text": "3DS XL", "catalog_ids": "3025", "order": "newest_first", "price_from": 2, "price_to": 100, "per_page": 10}},
+    {"name": "Giochi Nintendo Switch", "params": {"search_text": "Nintendo Switch", "catalog_ids": "3026", "order": "newest_first", "price_from": 2, "price_to": 15, "per_page": 10}},
+    {"name": "Giochi Nintendo 3DS", "params": {"search_text": "Nintendo 3DS", "catalog_ids": "3026", "order": "newest_first", "price_from": 2, "price_to": 10, "per_page": 10}},
+    {"name": "Giochi PlayStation", "params": {"search_text": "PlayStation", "catalog_ids": "3026", "order": "newest_first", "price_from": 2, "price_to": 30, "per_page": 10}},
+    {"name": "Giochi PlayStation 5", "params": {"search_text": "PlayStation 5", "catalog_ids": "3026", "order": "newest_first", "price_from": 2, "price_to": 30, "per_page": 10}},
 ]
 
 def load_seen():
@@ -36,7 +36,7 @@ def save_seen(seen):
     with open(SEEN_FILE, "w") as f:
         json.dump(list(seen), f)
 
-def send_to_telegram(title, price, item_id, search_name, url=None, token=None):
+def send_with_token(token, title, price, item_id, search_name, url=None):
     import requests
     item_url = url if url and str(url).startswith("http") else f"https://www.vinted.it/items/{item_id}"
     
@@ -60,15 +60,21 @@ def send_to_telegram(title, price, item_id, search_name, url=None, token=None):
 
     try:
         r = requests.post(api_url, json=payload, timeout=10)
-        if r.status_code == 200:
-            print(f"[{datetime.now().strftime('%H:%M:%S')}] OK {search_name} | {price}€")
-            return True
-        else:
-            print(f"Errore Telegram: {r.status_code}")
-            return False
-    except Exception as e:
-        print("Errore invio:", e)
+        return r.status_code == 200
+    except:
         return False
+
+def send_to_telegram(title, price, item_id, search_name, url=None):
+    # Prova prima con token 1, se fallisce prova con token 2
+    if send_with_token(TOKEN_1, title, price, item_id, search_name, url):
+        print(f"[{datetime.now().strftime('%H:%M:%S')}] OK (bot1) {search_name} | {price}€")
+        return True
+    time.sleep(1)
+    if TOKEN_2 and send_with_token(TOKEN_2, title, price, item_id, search_name, url):
+        print(f"[{datetime.now().strftime('%H:%M:%S')}] OK (bot2) {search_name} | {price}€")
+        return True
+    print("Errore invio su entrambi i bot")
+    return False
 
 def get_price(item):
     try:
@@ -91,7 +97,6 @@ def check_search(scraper, search, seen):
         print(f"[{name}] Trovati {len(items)} annunci")
         new_count = 0
         sent = 0
-        use_token1 = True
 
         for item in items:
             if sent >= MAX_PER_SEARCH:
@@ -102,14 +107,12 @@ def check_search(scraper, search, seen):
             seen.add(item_id)
             price = get_price(item)
             url = getattr(item, "url", None) or getattr(item, "path", None)
-            token = TOKEN_1 if use_token1 else TOKEN_2
-            if send_to_telegram(item.title, price, item_id, name, url, token):
+            if send_to_telegram(item.title, price, item_id, name, url):
                 sent += 1
                 new_count += 1
-                use_token1 = not use_token1
-                time.sleep(1.5)
+                time.sleep(2)
             else:
-                time.sleep(5)
+                time.sleep(4)
 
         if new_count > 0:
             save_seen(seen)
@@ -121,13 +124,13 @@ def check_search(scraper, search, seen):
         print(f"[{name}] Errore: {e}")
 
 def main():
-    if not TOKEN_1 or not TOKEN_2 or not CHAT_ID:
-        print("ERRORE: Manca TELEGRAM_TOKEN, TELEGRAM_TOKEN_2 o TELEGRAM_CHAT_ID")
+    if not TOKEN_1 or not CHAT_ID:
+        print("ERRORE: Manca TELEGRAM_TOKEN o TELEGRAM_CHAT_ID")
         return
 
     seen = load_seen()
     scraper = VintedScraper("https://www.vinted.it")
-    print("Bot Vinted avviato (2 bot)")
+    print("Bot Vinted avviato (fallback 2 bot)")
     print(f"Controllo ogni {CHECK_INTERVAL} secondi")
 
     for search in SEARCHES:
