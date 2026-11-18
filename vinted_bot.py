@@ -7,7 +7,7 @@ from vinted_scraper import VintedScraper
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
 TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
 
-CHECK_INTERVAL = 60
+CHECK_INTERVAL = 45
 SEEN_FILE = "seen_items.json"
 
 SEARCHES = [
@@ -60,15 +60,12 @@ def send_to_telegram(title, price, item_id, search_name, url=None):
         r = requests.post(api_url, json=payload, timeout=10)
         if r.status_code == 200:
             print(f"[{datetime.now().strftime('%H:%M:%S')}] OK {search_name} | {price}€ | {title[:40]}")
-        elif r.status_code == 429:
-            print("Limite Telegram, attendo 10 secondi...")
-            time.sleep(10)
         else:
             print(f"Errore Telegram: {r.status_code}")
     except Exception as e:
         print("Errore invio Telegram:", e)
     
-    time.sleep(2)  # un annuncio ogni 2 secondi
+    time.sleep(2)
 
 def get_price(item):
     try:
@@ -117,7 +114,7 @@ def main():
 
     seen = load_seen()
     scraper = VintedScraper("https://www.vinted.it")
-    print("Bot Vinted avviato (messaggi ogni 2 secondi)")
+    print("Bot Vinted avviato (controllo ogni 45s)")
     print(f"Ricerche: {len(SEARCHES)}")
     print(f"Controllo ogni {CHECK_INTERVAL} secondi")
 
