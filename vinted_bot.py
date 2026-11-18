@@ -7,18 +7,18 @@ from vinted_scraper import VintedScraper
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
 TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
 
-CHECK_INTERVAL = 50
+CHECK_INTERVAL = 90
 SEEN_FILE = "seen_items.json"
 
 SEARCHES = [
-    {"name": "Nintendo Switch (Console)", "params": {"search_text": "Nintendo Switch", "catalog_ids": "3025", "order": "newest_first", "price_from": 2, "price_to": 80, "per_page": 20}},
-    {"name": "Ralph Lauren", "params": {"search_text": "Ralph Lauren", "order": "newest_first", "price_from": 2, "price_to": 30, "per_page": 20}},
-    {"name": "Nintendo 3DS", "params": {"search_text": "Nintendo 3DS", "catalog_ids": "3025", "order": "newest_first", "price_from": 2, "price_to": 70, "per_page": 20}},
-    {"name": "Nintendo 3DS XL", "params": {"search_text": "3DS XL", "catalog_ids": "3025", "order": "newest_first", "price_from": 2, "price_to": 100, "per_page": 20}},
-    {"name": "Giochi Nintendo Switch", "params": {"search_text": "Nintendo Switch", "catalog_ids": "3026", "order": "newest_first", "price_from": 2, "price_to": 15, "per_page": 20}},
-    {"name": "Giochi Nintendo 3DS", "params": {"search_text": "Nintendo 3DS", "catalog_ids": "3026", "order": "newest_first", "price_from": 2, "price_to": 10, "per_page": 20}},
-    {"name": "Giochi PlayStation", "params": {"search_text": "PlayStation", "catalog_ids": "3026", "order": "newest_first", "price_from": 2, "price_to": 30, "per_page": 20}},
-    {"name": "Giochi PlayStation 5", "params": {"search_text": "PlayStation 5", "catalog_ids": "3026", "order": "newest_first", "price_from": 2, "price_to": 30, "per_page": 20}},
+    {"name": "Nintendo Switch (Console)", "params": {"search_text": "Nintendo Switch", "catalog_ids": "3025", "order": "newest_first", "price_from": 2, "price_to": 80, "per_page": 15}},
+    {"name": "Ralph Lauren", "params": {"search_text": "Ralph Lauren", "order": "newest_first", "price_from": 2, "price_to": 30, "per_page": 15}},
+    {"name": "Nintendo 3DS", "params": {"search_text": "Nintendo 3DS", "catalog_ids": "3025", "order": "newest_first", "price_from": 2, "price_to": 70, "per_page": 15}},
+    {"name": "Nintendo 3DS XL", "params": {"search_text": "3DS XL", "catalog_ids": "3025", "order": "newest_first", "price_from": 2, "price_to": 100, "per_page": 15}},
+    {"name": "Giochi Nintendo Switch", "params": {"search_text": "Nintendo Switch", "catalog_ids": "3026", "order": "newest_first", "price_from": 2, "price_to": 15, "per_page": 15}},
+    {"name": "Giochi Nintendo 3DS", "params": {"search_text": "Nintendo 3DS", "catalog_ids": "3026", "order": "newest_first", "price_from": 2, "price_to": 10, "per_page": 15}},
+    {"name": "Giochi PlayStation", "params": {"search_text": "PlayStation", "catalog_ids": "3026", "order": "newest_first", "price_from": 2, "price_to": 30, "per_page": 15}},
+    {"name": "Giochi PlayStation 5", "params": {"search_text": "PlayStation 5", "catalog_ids": "3026", "order": "newest_first", "price_from": 2, "price_to": 30, "per_page": 15}},
 ]
 
 def load_seen():
@@ -60,10 +60,15 @@ def send_to_telegram(title, price, item_id, search_name, url=None):
         r = requests.post(api_url, json=payload, timeout=10)
         if r.status_code == 200:
             print(f"[{datetime.now().strftime('%H:%M:%S')}] OK {search_name} | {price}€ | {title[:40]}")
+        elif r.status_code == 429:
+            print("Telegram rate limit, attendo 10 secondi...")
+            time.sleep(10)
         else:
             print(f"Errore Telegram: {r.status_code} - {r.text[:150]}")
     except Exception as e:
         print("Errore invio Telegram:", e)
+    
+    time.sleep(2)  # pausa tra un messaggio e l'altro
 
 def get_price(item):
     try:
@@ -112,7 +117,7 @@ def main():
 
     seen = load_seen()
     scraper = VintedScraper("https://www.vinted.it")
-    print("Bot Vinted avviato (newest first)")
+    print("Bot Vinted avviato (con rate limit)")
     print(f"Ricerche: {len(SEARCHES)}")
     print(f"Controllo ogni {CHECK_INTERVAL} secondi")
 
@@ -126,7 +131,7 @@ def main():
         time.sleep(CHECK_INTERVAL)
         for search in SEARCHES:
             check_search(scraper, search, seen)
-            time.sleep(1.5)
+            time.sleep(2)
 
 if __name__ == "__main__":
     main()
